@@ -1,0 +1,3 @@
+#define SSID "SSID"
+#define PSK "PASSWORD"
+#define MQTT_BROKER "123.123.132.123"
