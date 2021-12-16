@@ -1,0 +1,243 @@
+<div class="row">
+    <div class="col" id="chartContainer1"></div>
+    <div class="col" id="chartContainer2"></div>
+</div>
+
+<script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
+<script>
+
+    var theScope = scope;
+
+    // Watch the payload and update
+    (function (scope) {
+        scope.$watch('msg.payload', function (data) {
+            update(data);
+        });
+    })(scope);
+
+    var charts = [];
+    var toolTip = {
+        shared: true
+    },
+        legend = {
+            cursor: "pointer",
+            itemclick: function (e) {
+                if (typeof (e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+                    e.dataSeries.visible = false;
+                } else {
+                    e.dataSeries.visible = true;
+                }
+                e.chart.render();
+            }
+
+        };
+
+    function newGraphs(names)
+    {
+        var temperatureOptions = {
+            animationEnabled: true,
+            theme: "light2", // "light1", "light2", "dark1", "dark2"
+            title: {
+                text: "Temperaturen"
+            },
+            toolTip: toolTip,
+            axisY: {
+                valueFormatString: "#0.#°C",
+            },
+            legend: legend,
+            data: []
+        };
+
+        var humidityOptions = {
+            animationEnabled: true,
+            theme: "light2", // "light1", "light2", "dark1", "dark2"
+            title: {
+                text: "Luftfeuchtigkeiten"
+            },
+            toolTip: toolTip,
+            axisY: {
+                valueFormatString: "# '%'",
+            },
+            legend: legend,
+            data: []
+        };
+
+        for (let index = 0; index < names.length; index++) {
+            option = {
+                type: "line",
+                showInLegend: "true",
+                name: names[index],
+                xValueType: "dateTime",
+                xValueFormatString: "DD MMM YY HH:mm",
+                yValueFormatString: "# °C",
+                legendMarkerType: "square",
+                dataPoints: []
+            }
+            temperatureOptions.data.push(option)
+        }
+
+        for (let index = 0; index <  names.length; index++) {
+            option = {
+                type: "line",
+                showInLegend: "true",
+                name: names[index],
+                xValueType: "dateTime",
+                xValueFormatString: "DD MMM YY HH:mm",
+                yValueFormatString: "# '%'",
+                legendMarkerType: "square",
+                dataPoints: []
+            }
+            humidityOptions.data.push(option)
+        }
+        charts = []
+        charts.push(new CanvasJS.Chart("chartContainer1", temperatureOptions));
+        charts.push(new CanvasJS.Chart("chartContainer2", humidityOptions));
+        return charts
+    }
+
+    function update(msg) {
+        console.log(msg);
+        var names = Object.keys(msg['humidity']);
+        var numberOfRooms = names.length;
+
+        var temperatures = Array.from({ length: numberOfRooms }, () => ([])), humidities = Array.from({ length: numberOfRooms }, () => ([]));
+
+        charts = newGraphs(names);
+        jsonData = msg
+
+
+        for (var index = 0; index < numberOfRooms; index++) {
+            for (var i = 1; i < jsonData['humidity'][names[index]].length; i++) {
+                var roomName = names[index];
+                humidities[index].push({ x: parseInt(jsonData['humidity'][roomName][i].time), y: parseFloat(jsonData['humidity'][roomName][i].value) });
+            }
+            charts[1].options.data[index].dataPoints = humidities[index];
+        }
+        for (var index = 0; index < numberOfRooms; index++) {
+            for (var i = 1; i < jsonData['temperature'][names[index]].length; i++) {
+                var roomName = names[index];
+                temperatures[index].push({ x: parseInt(jsonData['temperature'][roomName][i].time), y: parseFloat(jsonData['temperature'][roomName][i].value) });
+            }
+            charts[0].options.data[index].dataPoints = temperatures[index];
+        }
+
+        for (var i = 0; i < charts.length; i++) {
+            charts[i].options.axisX = {
+                labelAngle: 0,
+                crosshair: {
+                    enabled: true,
+                    snapToDataPoint: true,
+                    valueFormatString: "HH:mm"
+                }
+            }
+        }
+
+        syncCharts(charts, true, true, true); // syncCharts(charts, syncToolTip, syncCrosshair, syncAxisXRange)
+
+        for (var i = 0; i < charts.length; i++) {
+            charts[i].render();
+        }
+
+        function syncCharts(charts, syncToolTip, syncCrosshair, syncAxisXRange) {
+
+            //if (!this.onToolTipUpdated) {
+                this.onToolTipUpdated = function (e) {
+                    for (var j = 0; j < charts.length; j++) {
+                        if (charts[j] != e.chart)
+                            charts[j].toolTip.showAtX(e.entries[0].xValue);
+                    }
+                }
+            //}
+
+            //if (!this.onToolTipHidden) {
+                this.onToolTipHidden = function (e) {
+                    for (var j = 0; j < charts.length; j++) {
+                        if (charts[j] != e.chart)
+                            charts[j].toolTip.hide();
+                    }
+                }
+            //}
+
+            //if (!this.onCrosshairUpdated) {
+                this.onCrosshairUpdated = function (e) {
+                    for (var j = 0; j < charts.length; j++) {
+                        if (charts[j] != e.chart)
+                            charts[j].axisX[0].crosshair.showAt(e.value);
+                    }
+                }
+            //}
+
+            //if (!this.onCrosshairHidden) {
+                this.onCrosshairHidden = function (e) {
+                    for (var j = 0; j < charts.length; j++) {
+                        console.log('j = :' + j);
+                        if (charts[j] != e.chart)
+                            charts[j].axisX[0].crosshair.hide();
+                    }
+                }
+            //}
+
+            //if (!this.onRangeChanged) {
+                this.onRangeChanged = function (e) {
+                    console.log('change range');
+                    for (var j = 0; j < charts.length; j++) {
+                        if (e.trigger === "reset") {
+                            charts[j].options.axisX.viewportMinimum = charts[j].options.axisX.viewportMaximum = null;
+                            charts[j].options.axisY.viewportMinimum = charts[j].options.axisY.viewportMaximum = null;
+                            charts[j].render();
+                        } else if (charts[j] !== e.chart) {
+                            charts[j].options.axisX.viewportMinimum = e.axisX[0].viewportMinimum;
+                            charts[j].options.axisX.viewportMaximum = e.axisX[0].viewportMaximum;
+                            charts[j].render();
+                        }
+                    }
+                }
+            //}
+
+            for (var i = 0; i < charts.length; i++) {
+                console.log(i);
+                //Sync ToolTip
+                if (syncToolTip) {
+                    if (!charts[i].options.toolTip)
+                        charts[i].options.toolTip = {};
+
+                    charts[i].options.toolTip.updated = this.onToolTipUpdated;
+                    charts[i].options.toolTip.hidden = this.onToolTipHidden;
+                }
+
+                //Sync Crosshair
+                if (syncCrosshair) {
+                    if (!charts[i].options.axisX)
+                        charts[i].options.axisX = { crosshair: { enabled: true } };
+
+                    charts[i].options.axisX.crosshair.updated = this.onCrosshairUpdated;
+                    charts[i].options.axisX.crosshair.hidden = this.onCrosshairHidden;
+                }
+
+                //Sync Zoom / Pan
+                if (syncAxisXRange) {
+                    charts[i].options.zoomEnabled = true;
+                    charts[i].options.rangeChanged = this.onRangeChanged;
+                }
+            }
+        };
+    }
+
+</script>
+<style>
+    .row:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    .col {
+        float: left;
+        width: 50%;
+        height: 400px;
+    }
+
+    .graph_box {
+        overflow: hidden;
+    }
+</style>
