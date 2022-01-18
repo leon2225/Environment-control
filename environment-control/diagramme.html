@@ -7,7 +7,7 @@
 <script>
 
     var theScope = scope;
-
+    var firstCall = true;
     // Watch the payload and update
     (function (scope) {
         scope.$watch('msg.payload', function (data) {
@@ -58,6 +58,9 @@
             axisY: {
                 valueFormatString: "# '%'",
             },
+            axisX: {
+                valueFormatString: "DD MMM YY HH:mm",
+            },
             legend: legend,
             data: []
         };
@@ -96,13 +99,26 @@
     }
 
     function update(msg) {
+        if(CanvasJS === undefined)
+        {
+            console.error('CanvasJS not defined - abort update');
+            return;
+        }
+
         console.log(msg);
         var names = Object.keys(msg['humidity']);
         var numberOfRooms = names.length;
 
         var temperatures = Array.from({ length: numberOfRooms }, () => ([])), humidities = Array.from({ length: numberOfRooms }, () => ([]));
 
-        charts = newGraphs(names);
+
+        if(firstCall)
+        {
+            firstCall = false;
+            console.log("Create charts ... start");
+            charts = newGraphs(names);            
+            console.log("Create charts ... end");
+        }
         jsonData = msg
 
 
@@ -113,6 +129,7 @@
             }
             charts[1].options.data[index].dataPoints = humidities[index];
         }
+
         for (var index = 0; index < numberOfRooms; index++) {
             for (var i = 1; i < jsonData['temperature'][names[index]].length; i++) {
                 var roomName = names[index];
